@@ -78,7 +78,7 @@ func main() {
 			//Call the periodic function here.
 			models, err := retrieveMetrics()
 			if err != nil {
-				fmt.Errorf("cannot retrieve metrics from FDB: (%v)", err)
+				fmt.Println(fmt.Errorf("cannot retrieve metrics from FDB: (%v)", err))
 				continue
 			}
 

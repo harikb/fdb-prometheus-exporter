@@ -29,7 +29,8 @@ type FDBClientStatus struct {
 		Available bool `json:"available"`
 		Healthy   bool `json:"healthy"`
 	} `json:"database_status"`
-	Timestamp float64 `json:"timestamp"`
+	Messages  []interface{} `json:"messages"`
+	Timestamp float64       `json:"timestamp"`
 }
 
 // FDBClusterStatus represents a cluster status
@@ -61,7 +62,8 @@ type FDBClusterStatus struct {
 		TransactionStartSeconds                  float64 `json:"transaction_start_seconds"`
 	} `json:"latency_probe"`
 	Layers struct {
-		Valid bool `json:"_valid"`
+		Valid bool   `json:"_valid"`
+		Error string `json:"_error"`
 	} `json:"layers"`
 	Machines  map[string]FDBClusterMachineStatus `json:"machines"`
 	PageCache struct {
@@ -108,8 +110,13 @@ type FDBClusterStatus struct {
 		WorstVersionLagStorageServer float64 `json:"worst_version_lag_storage_server"`
 	} `json:"qos"`
 	RecoveryState struct {
-		Description string `json:"description"`
-		Name        string `json:"name"`
+		RequiredResolvers float64
+		RequiredProxies   float64
+		RequiredLogs      float64
+		MissingLogs       string
+		ActiveGenerations float64
+		Description       string `json:"description"`
+		Name              string `json:"name"`
 	} `json:"recovery_state"`
 	Workload struct {
 		Bytes struct {
@@ -147,6 +154,21 @@ type FDBClusterStatus struct {
 				Hz        float64 `json:"hz"`
 				Roughness float64 `json:"roughness"`
 			} `json:"writes"`
+			LowPriorityReads struct {
+				Counter   float64 `json:"counter"`
+				Hz        float64 `json:"hz"`
+				Roughness float64 `json:"roughness"`
+			} `json:"low_priority_reads"`
+			LocationRequests struct {
+				Counter   float64 `json:"counter"`
+				Hz        float64 `json:"hz"`
+				Roughness float64 `json:"roughness"`
+			} `json:"location_requests"`
+			MemoryErrors struct {
+				Counter   float64 `json:"counter"`
+				Hz        float64 `json:"hz"`
+				Roughness float64 `json:"roughness"`
+			} `json:"memory_errors"`
 		} `json:"operations"`
 		Transactions struct {
 			Committed struct {
@@ -192,9 +214,14 @@ type FDBClusterClientsStatus struct {
 			Address  string `json:"address"`
 			LogGroup string `json:"log_group"`
 		} `json:"connected_clients"`
-		Count           float64 `json:"count"`
-		ProtocolVersion string  `json:"protocol_version"`
-		SourceVersion   string  `json:"source_version"`
+		MaxProtocolClients []struct {
+			Address  string `json:"address"`
+			LogGroup string `json:"log_group"`
+		} `json:"max_protocol_clients"`
+		Count            float64 `json:"count"`
+		MaxProtocolCount float64 `json:"max_protocol_count"`
+		ProtocolVersion  string  `json:"protocol_version"`
+		SourceVersion    string  `json:"source_version"`
 	} `json:"supported_versions"`
 }
 
@@ -281,9 +308,10 @@ type FDBClusterProcessStatus struct {
 	ClassType   string `json:"class_type"`
 	CommandLine string `json:"command_line"`
 	CPU         struct {
-		UsageCores float64 `json:"usage_cores"`
+		UsageCores float64 `json:"usage_cores"` // average number of logical cores utilized by the process over the recent past; value may be > 1.0
 	} `json:"cpu"`
-	Disk struct {
+	Degraded bool `json:"degraded"`
+	Disk     struct {
 		Busy      float64 `json:"busy"`
 		FreeBytes int64   `json:"free_bytes"`
 		Reads     struct {
@@ -298,9 +326,15 @@ type FDBClusterProcessStatus struct {
 			Sectors float64 `json:"sectors"`
 		} `json:"writes"`
 	} `json:"disk"`
-	Excluded    bool   `json:"excluded"`
-	FaultDomain string `json:"fault_domain"`
-	Locality    struct {
+	Excluded         bool   `json:"excluded"`
+	UnderMaintenance bool   `json:"under_maintenance"`
+	FaultDomain      string `json:"fault_domain"`
+	// TODO: Resolve possible incompatibility with Locality
+	// spec is more generic than below
+	// "locality":{ // This will contain any locality fields that are provided on the command line
+	//	"$map_key=localityName":"value"
+	// },
+	Locality struct {
 		InstanceID string `json:"instance_id"`
 		Machineid  string `json:"machineid"`
 		Processid  string `json:"processid"`
@@ -313,8 +347,12 @@ type FDBClusterProcessStatus struct {
 		UnusedAllocatedMemory float64 `json:"unused_allocated_memory"`
 		UsedBytes             float64 `json:"used_bytes"`
 	} `json:"memory"`
-	Messages []interface{} `json:"messages"`
-	Network  struct {
+	Messages []struct {
+		Time float64 `json:"time"`
+		Type string  `json:"type"`
+		Name string  `json:"name"`
+	} `json:"messages"`
+	Network struct {
 		ConnectionErrors struct {
 			Hz float64 `json:"hz"`
 		} `json:"connection_errors"`
@@ -331,6 +369,9 @@ type FDBClusterProcessStatus struct {
 		MegabitsSent struct {
 			Hz float64 `json:"hz"`
 		} `json:"megabits_sent"`
+		TlsPolicyFailures struct {
+			Hz float64 `json:"hz"`
+		} `json:"tls_policy_failures"`
 	} `json:"network"`
 	Roles         []DynamicRole `json:"roles"`
 	RunLoopBusy   float64       `json:"run_loop_busy"`
